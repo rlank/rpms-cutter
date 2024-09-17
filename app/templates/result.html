@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clipping Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Clipping Complete</h1>
+    <p>Download your clipped data below:</p>
+    <ul>
+        {% for url in download_urls %}
+        <li><a href="{{ url }}" target="_blank">{{ url }}</a></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Raster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Upload a Raster to Clip</h1>
+    <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" id="rasterFile" accept=".tif,.tiff,.geotiff" required>
+        
+        <label for="startYear">Start Year:</label>
+        <input type="number" id="startYear" name="startYear" min="1984" placeholder="Minimum: 1984" required>
+
+        <label for="endYear">End Year:</label>
+        <input type="number" id="endYear" name="endYear" required>
+
+        <input type="submit" value="Upload">
+    </form>
+
+    <button id="confirmUpload" style="display:none;">Confirm and Clip</button>
+
+    <script>
+        let maxYear = 2024;  // This will be updated dynamically from the server
+
+        // Fetch the maximum available RPMS year from the server
+        fetch('/get_max_rpms_year')
+            .then(response => response.json())
+            .then(data => {
+                maxYear = data.max_year;
+                document.getElementById('endYear').max = maxYear;
+                document.getElementById('endYear').placeholder = `Max Year: ${maxYear}`;
+            });
+
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();  // Prevent default form submission
+            const formData = new FormData(event.target);
+            const startYear = parseInt(document.getElementById('startYear').value);
+            const endYear = parseInt(document.getElementById('endYear').value);
+
+            // Validate year inputs
+            if (startYear < 1984 || endYear < startYear || endYear > maxYear) {
+                alert(`Please enter a valid year range between 1984 and ${maxYear}.`);
+                return;
+            }
+
+            // Upload the file and send year range for clipping
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Uploaded file response:", data);
+                
+                if (data.message === 'File uploaded successfully') {
+                    document.getElementById('confirmUpload').style.display = 'block';
+
+                    // Store the returned metadata for later use
+                    sessionStorage.setItem('bounds', JSON.stringify(data.bounds));
+                    sessionStorage.setItem('crs', data.crs);
+                    sessionStorage.setItem('transform', JSON.stringify(data.transform));
+                    sessionStorage.setItem('startYear', startYear);
+                    sessionStorage.setItem('endYear', endYear);
+                } else {
+                    alert('Error uploading file: ' + data.error);
+                }
+            });
+        });
+
+        document.getElementById('confirmUpload').addEventListener('click', function() {
+            // Retrieve stored data from sessionStorage
+            const bounds = JSON.parse(sessionStorage.getItem('bounds'));
+            const crs = sessionStorage.getItem('crs');
+            const transform = JSON.parse(sessionStorage.getItem('transform'));
+            const startYear = sessionStorage.getItem('startYear');
+            const endYear = sessionStorage.getItem('endYear');
+
+            // Send clipping request to server
+            fetch('/clip_raster', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bounds: bounds,
+                    crs: crs,
+                    transform: transform,
+                    startYear: startYear,
+                    endYear: endYear
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'Clipping complete') {
+                    window.location.href = '/result';
+                } else {
+                    alert('Error during clipping: ' + data.error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
